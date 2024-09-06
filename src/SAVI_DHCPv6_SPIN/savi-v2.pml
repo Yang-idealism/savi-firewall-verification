@@ -66,12 +66,12 @@ newllip:
     linklocaladdr = linklocaladdr % MAX + MAX ;
 getlinklocal:
     atomic{
-       sendmsg.srcIp = 0;/*全0*/ 
+       sendmsg.srcIp = 0;/*all 0*/ 
 
        sendmsg.dstMac = 0;
        sendmsg.dstIp = 0;
        sendmsg.target = linklocaladdr;
-       /*发送dad_ns for link-local*/
+       /*send dad_ns for link-local*/
        c_sv!dad_ns,sendmsg,interfaceId;       
     }
     /*relay*/
@@ -80,7 +80,7 @@ getlinklocal:
     ::tmp >4 ->break;
     ::else ->tmp++;
     od;
-    /*是否收到na*/
+    /*receive na or not*/
 receive0:
     if
     ::sv_c[interfaceId]?mtp,recvmsg,_->
@@ -89,18 +89,18 @@ receive0:
       fi;
     ::timeout->
       if
-      ::multichan??[dad_ns,recvmsg,eval(interfaceId)]->multichan??dad_ns,recvmsg,eval(interfaceId);/*绑定了linklocal地址*/
+      ::multichan??[dad_ns,recvmsg,eval(interfaceId)]->multichan??dad_ns,recvmsg,eval(interfaceId);/*bing the linklocal address*/
       ::else->skip;
       fi;
-      c_sv!tt,sendmsg,interfaceId;/*告诉savi可以超COUNT 时了*/
+      c_sv!tt,sendmsg,interfaceId;/*Tell savi that it is time to exceed COUNT*/
     fi;
-/*开始global地址的绑定:request/reply/dadns过程，此处略去了solicit过程*/
+/*the beginning of globaladdr binding:request/reply/dadns，omiting the process of solicit*/
 newgloabalIp:
     globaladdr++;
     globaladdr = globaladdr % MAX ;
 getglobal:
     atomic{
-       sendmsg.srcIp = linklocaladdr;/*本地地址*/ 
+       sendmsg.srcIp = linklocaladdr;/*localhost*/ 
        sendmsg.dstMac = 0;/*servermac*/
        sendmsg.dstIp = 0; /*serverip*/ 
        sendmsg.target = globaladdr;  
@@ -112,16 +112,16 @@ sendreq: if
        fi;     
     }
 receive1: /*wait for reply*/
-    sv_c[interfaceId]?mtp,recvmsg,_;/*不考虑超时重发*/
+    sv_c[interfaceId]?mtp,recvmsg,_;/*Do not consider timeout retransmission*/
     if
     ::mtp == reply && recvmsg.target == globaladdr->
       atomic{
-       sendmsg.srcIp = 0;/*全0*/ 
-       /*目的地址和mac是广播的mac和dad_ns地址，此处设为默认值0*/
+       sendmsg.srcIp = 0;/*all 0*/ 
+       /*The destination address and mac are the broadcast mac and dad_ns addresses, which are set to the default values ​​0*/
        sendmsg.dstMac = 0;
        sendmsg.dstIp = 0;
        sendmsg.target = globaladdr;
-       /*发送dad_ns for globaladdr*/
+       /*sending dad_ns for globaladdr*/
        c_sv!dad_ns,sendmsg,interfaceId;       
       }
       /*relay*/   
@@ -139,7 +139,7 @@ receive2:
       if
       :: mtp == na && recvmsg.target == globaladdr->
          atomic{
-         sendmsg.srcIp = globaladdr;/*地址*/ 
+         sendmsg.srcIp = globaladdr;/*addr*/ 
          sendmsg.dstMac = 0;/*servermac*/
          sendmsg.dstIp = 0; /*serverip*/ 
          sendmsg.target = globaladdr;  
@@ -156,7 +156,7 @@ progress0:
       fi;
       bounded[interfaceId] = true;
       boundedAddr[interfaceId] = globaladdr;
-      c_sv!tt,sendmsg,interfaceId;/*告诉savi可以超时了*/      
+      c_sv!tt,sendmsg,interfaceId;/*Tell savi that it is timeout*/      
       if
       ::goto rel; /*release*/
       ::goto using;
@@ -171,7 +171,7 @@ dec:
     fi;	
 rel:
     atomic{
-    sendmsg.srcIp = globaladdr;/*地址*/ 
+    sendmsg.srcIp = globaladdr;
     sendmsg.dstMac = 0;/*servermac*/
     sendmsg.dstIp = 0; /*serverip*/ 
     sendmsg.target = globaladdr;  
@@ -201,14 +201,13 @@ progressclient :
     ::multichan ?? <dad_ns,recvmsg,tmp>->  /*target*/
       if
       ::(recvmsg.target == globaladdr || recvmsg.target == linklocaladdr) && tmp != interfaceId->
-        /*这里实现其实还是有点问题，在绑定全局地址后再监听linklocal地址的重复检测。但为了简便起见，设置如此*/
         atomic{   
 	multichan ?? dad_ns,recvmsg,eval(tmp);
         sendmsg.srcIp = recvmsg.target;
         sendmsg.srcMac = mac;
         sendmsg.target = recvmsg.target;
-        sendmsg.dstMac = tmp; /*这个字段用来记录是哪个客户端在进行重复地址检测*/
-      	c_sv!na,sendmsg,interfaceId; /*发送给savi*/
+        sendmsg.dstMac = tmp; /*This field is used to record which client is performing duplicate address detection.*/
+      	c_sv!na,sendmsg,interfaceId; /*send to savi*/
         }
       ::else->skip;
       fi;
@@ -230,10 +229,10 @@ proctype server(){
 endserver:
 do::
     sv_ss?mtp,recvmsg,cid;
-    target = recvmsg.target; /*注意下标*/
+    target = recvmsg.target;
     if
     ::mtp == ping ->
-      /*服务器收到数据报文，该报文的源地址必须已绑定*/
+      /*The server receives a data message, the source address of which must be bound*/
       assert(table[recvmsg.srcIp].state == bound  && table[recvmsg.srcIp].mac == recvmsg.srcMac && table[recvmsg.srcIp].anc== cid);
       ss_sv!pingreply,recvmsg,cid;
     ::mtp == solicit->
@@ -267,9 +266,9 @@ proctype savi(){
     mtype mtp;
     MESSAGE recvmsg;
     byte anc,mac,ip;
-    /*启动过滤规则*/
+    /*Enable filtering rules*/
 endsavi:do
-  ::c_sv?mtp,recvmsg,anc; /*从客户端接受信息，如果地址已经绑定，两个端口申请同一个地址：先到先得？*/
+  ::c_sv?mtp,recvmsg,anc; /*Receive information from the client. If the address is already bound, two ports apply for the same address.*/
     printf("first:the state of 2 is %e<->%d\n",table[2].state,table[2].state);
     mac = recvmsg.srcMac;
     ip = recvmsg.target;
@@ -277,19 +276,18 @@ endsavi:do
     ::mtp == ping->
       if
       ::table[recvmsg.srcIp].state == bound && table[recvmsg.srcIp].mac == mac && table[recvmsg.srcIp].anc== anc->skip;
-      ::else->mtp=tt;goto fwd; /*验证不通过*/
+      ::else->mtp=tt;goto fwd; /*Verification failed*/
       fi;
     ::mtp == request || mtp == confirm ->
-      /*link local地址必须已经绑定*/
+      /*link localaddress must be bound*/
       if
-      ::table[recvmsg.srcIp].state == bound && table[recvmsg.srcIp].mac == mac && table[recvmsg.srcIp].anc== anc->skip;/*验证通过*/
-      ::else->mtp=tt;goto fwd; /*验证不通过*/
+      ::table[recvmsg.srcIp].state == bound && table[recvmsg.srcIp].mac == mac && table[recvmsg.srcIp].anc== anc->skip;/*Verification passed*/
+      ::else->mtp=tt;goto fwd; /*Verification failed*/
       fi;
-      /*当要申请的地址已经被占用了，则直接告诉客户端换地址，虽然此处与实际稍微不符，但不影响正常的流程*/
       printf("the state of %d is %d\n",ip,table[ip].state);
       if
-      ::table[ip].state !=0 && table[ip].state != begin && table[ip].anc != anc -> sv_c[anc]!notonlink,recvmsg,anc;mtp=tt;/*不让转发而已，无逻辑上的意义*/
-      ::table[ip].state !=0 && table[ip].state != begin && table[ip].anc == anc -> mtp=tt; /*客户端重复发送相同的请求，忽略掉*/
+      ::table[ip].state !=0 && table[ip].state != begin && table[ip].anc != anc -> sv_c[anc]!notonlink,recvmsg,anc;mtp=tt;
+      ::table[ip].state !=0 && table[ip].state != begin && table[ip].anc == anc -> mtp=tt; 
       ::else->       
      	atomic{
         table[ip].anc = anc;
@@ -300,20 +298,19 @@ endsavi:do
       fi;      
       printf("now the state of %d is %d\n",ip,table[ip].state);
     ::mtp == dad_ns->
-      /*源地址必须为全0，为减少状态空间，此处暂时不加*/
+      /*The source address must be all 0s to reduce the state space.*/
       atomic{
       table[ip].anc = anc;
       table[ip].mac = mac;
       table[ip].address = ip;
       table[ip].state = detection;
-      /*计算timeout不好设置，此处这样替代：让客户端来做，如果客户端发送dad_ns后没有收到na，则它发送一个timeout给savi?*/
-      multichan!mtp,recvmsg,anc; /*将消息广播出去*/
+      multichan!mtp,recvmsg,anc; /*broadcast the message*/
       }      
     ::mtp == tt ->
       if
       ::table[ip].state == detection -> 
         table[ip].state = bound;
-        /*一致性检测：对于global地址：客户端，savi与服务端的IP使用保持一致*/
+        /*Consistency check: For global addresses: the client, savi and server IP addresses are consistent.*/
         if
         ::ip<MAX->
         assert(bounded[anc] && IPs[ip] && table[ip].mac == recvmsg.srcMac && table[ip].anc == anc);
@@ -321,25 +318,23 @@ endsavi:do
         fi;
       ::else->skip;
       fi;
-    :: mtp == release->/*绑定后才删*/
+    :: mtp == release->/*Delete after binding*/
       if
       ::table[recvmsg.srcIp].state == bound && table[recvmsg.srcIp].mac == mac && table[recvmsg.srcIp].anc== anc->table[ip].state = tobeDelete;
-      ::else->mtp = tt;/*验证不通过则丢掉*/
+      ::else->mtp = tt;/*If verification fails, it will be discarded*/
       fi;
-    :: mtp == decline->/*任何时候都删*/
+    :: mtp == decline->/*Delete at any time*/
       if
       ::table[ip].state !=0 && table[recvmsg.srcIp].state != begin && table[recvmsg.srcIp].mac == mac && table[recvmsg.srcIp].anc== anc->table[ip].state = tobeDelete;
-      ::else->mtp = tt;/*验证不通过则丢掉*/
+      ::else->mtp = tt;/*If verification fails, it will be discarded*/
       fi;
     ::mtp == na->
-      /*na的target,源地址必须已经绑定*/
       if
       ::table[recvmsg.target].state == bound && table[recvmsg.target].mac == mac && table[recvmsg.target].anc== anc ->skip;
       ::else->goto fwd;
       fi;
       if
       ::table[ip].state == detection ->table[ip].state = begin;sv_c[recvmsg.dstMac]!mtp,recvmsg,recvmsg.dstMac;
-      /*转发给客户端,注意，转发给哪个客户端的数值被发送na的写在recvmsg.dstMac位置上*/
       ::else->goto fwd;
       fi;      
     ::else->skip;
@@ -348,7 +343,7 @@ fwd:    if
     ::mtp != dad_ns && mtp != tt && mtp != na && mtp != notonlink ->sv_ss!mtp,recvmsg,anc; /*dad_ns,na和tt就不转发了*/
     ::else->skip;
     fi;
-  ::ss_sv?mtp,recvmsg,anc;/*从服务端接收信息：trust口*/
+  ::ss_sv?mtp,recvmsg,anc;/*Receiving information from the server: Trust port*/
     ip = recvmsg.target;
     if
     ::mtp == reply->
@@ -362,7 +357,7 @@ fwd:    if
 od;
 }
 
-/*攻击者进程,自身绑定的条件下进行攻击*/
+/*The attacker process attacks under the condition of binding itself*/
 proctype intruder(byte interfaceId){    
     /*init msg:the value of mac,target = interfaceId*/
     atomic{
@@ -375,22 +370,21 @@ proctype intruder(byte interfaceId){
         sendmsg.srcMac = mac;
         MESSAGE recvmsg;
     }
-  
-    /*link-local无request/reply过程，所以在server中没有记录，global在dhcpserver有记录:省却solicit和advertise过程*/	
+
 newllip:
     linklocaladdr++;
     linklocaladdr = linklocaladdr % MAX + MAX ;
-    /*未绑定源地址，发一个ping报文*/
+    /*Unbound source address, send a ping message*/
     sendmsg.srcIp = linklocaladdr;
     c_sv!ping,sendmsg,interfaceId;
 getlinklocal:
     atomic{
-       sendmsg.srcIp = 0;/*全0*/ COUNT 
-       /*目的地址和mac是广播的mac和dad_ns地址，此处设为默认值0*/
+       sendmsg.srcIp = 0;/*all 0*/ COUNT 
+       /*The destination address and mac are the broadcast mac and dad_ns addresses, which are set to the default value 0.*/
        sendmsg.dstMac = 0;
        sendmsg.dstIp = 0;
        sendmsg.target = linklocaladdr;
-       /*发送dad_ns for link-local*/
+       /*sendingdad_ns for link-local*/
        c_sv!dad_ns,sendmsg,interfaceId;       
     }
     /*relay*/
@@ -398,7 +392,6 @@ getlinklocal:
     ::tmp >4 ->break;
     ::else ->tmp++;
     od;
-    /*是否收到na*/
 receive0:
     if
     ::sv_c[interfaceId]?mtp,recvmsg,_->
@@ -407,18 +400,17 @@ receive0:
       fi;
     ::timeout->
       if
-      ::multichan??[dad_ns,recvmsg,eval(interfaceId)]->multichan??dad_ns,recvmsg,eval(interfaceId);/*绑定了linklocal地址*/
+      ::multichan??[dad_ns,recvmsg,eval(interfaceId)]->multichan??dad_ns,recvmsg,eval(interfaceId);/*binding the link local addr*/
       ::else->skip;
       fi;
-      c_sv!tt,sendmsg,interfaceId;/*告诉savi可以超时了*/
+      c_sv!tt,sendmsg,interfaceId;
     fi;
-/*开始global地址的绑定:request/reply/dadns过程，此处略去了solicit过程*/
 newgloabalIp:
     globaladdr++;
     globaladdr = globaladdr % MAX ;
 getglobal:
     atomic{
-       sendmsg.srcIp = linklocaladdr;/*本地地址*/ 
+       sendmsg.srcIp = linklocaladdr;
        sendmsg.dstMac = 0;/*servermac*/
        sendmsg.dstIp = 0; /*serverip*/ 
        sendmsg.target = globaladdr;   
@@ -431,12 +423,11 @@ receive1: /*wait for reply*/
     if
     ::mtp == reply && recvmsg.target == globaladdr->
       atomic{
-       sendmsg.srcIp = 0;/*全0*/ 
-       /*目的地址和mac是广播的mac和dad_ns地址，此处设为默认值0*/
+       sendmsg.srcIp = 0;
        sendmsg.dstMac = 0;
        sendmsg.dstIp = 0;
        sendmsg.target = globaladdr;
-       /*发送dad_ns for globaladdr*/
+       /*send dad_ns for globaladdr*/
        c_sv!dad_ns,sendmsg,interfaceId;       
       }
       /*relay*/   
@@ -455,7 +446,7 @@ receive2:
       if
       :: mtp == na && recvmsg.target == globaladdr->
          atomic{
-         sendmsg.srcIp = globaladdr;/*地址*/ 
+         sendmsg.srcIp = globaladdr;/*addr*/ 
          sendmsg.dstMac = 0;/*servermac*/
          sendmsg.dstIp = 0; /*serverip*/ 
          sendmsg.target = globaladdr;  
@@ -473,7 +464,7 @@ progress0:
       atomic{
       bounded[interfaceId] = true;  
       boundedAddr[interfaceId] = globaladdr;   
-      c_sv!tt,sendmsg,interfaceId;/*告诉savi可以超时了*/
+      c_sv!tt,sendmsg,interfaceId;
       }
       if
       ::goto attack; /*release*/
@@ -489,32 +480,31 @@ dec:
 attack:	
     printf("intruder  %d is using %d,now to attack\n",interfaceId,globaladdr);  
     
-    /*发送ping报文*/
+    /*sending ping*/
     sendmsg.srcIp = globaladdr;
     c_sv!ping,sendmsg,interfaceId;   
     sv_c[interfaceId]?pingreply,recvmsg,_;    
 endintruder:  
-  do /*嗅探其他客户端发送的消息*/
+  do /*Sniff messages sent by other clients*/
   ::c_sv?<request,recvmsg,anc> ->
     if
     ::lastTarget != recvmsg.target ->
-      c_sv!notonlink,recvmsg,interfaceId; /*伪造成服务器，宣告该地址无法分配*/      
-      c_sv!decline,recvmsg,interfaceId;lastTarget = recvmsg.target;/*伪造decline报文*/
+      c_sv!notonlink,recvmsg,interfaceId; /*Pretend to be a server and declare that the address cannot be assigned*/      
+      c_sv!decline,recvmsg,interfaceId;lastTarget = recvmsg.target;/*forge decline message*/
     ::else->goto progress;
     fi;
   ::c_sv?<confirm,recvmsg,anc> ->
     if
     ::lastTarget != recvmsg.target -> 
-      /*伪造源地址发送数据报文*/
       c_sv!ping,recvmsg,interfaceId;
-      c_sv!decline,recvmsg,interfaceId;lastTarget = recvmsg.target;/*伪造decline报文*/
+      c_sv!decline,recvmsg,interfaceId;lastTarget = recvmsg.target;
     ::else->goto progress;
     fi;
   ::multichan?<dad_ns,recvmsg,anc> ->
     atomic{
     multichan?dad_ns,recvmsg,anc;
     recvmsg.dstMac = anc; 
-    /*伪造源地址发送数据报文*/
+    /*Forged source address to send data packets*/
     c_sv!ping,recvmsg,interfaceId;
     c_sv!na,recvmsg,interfaceId;
     lastTarget = recvmsg.target;
