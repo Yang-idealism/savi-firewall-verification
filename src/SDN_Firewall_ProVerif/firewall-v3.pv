@@ -1,7 +1,5 @@
-(*防火墙第一版 2.27版 
-内部主机A B、外部主机A ，交换机A B 控制器*)
 set traceDisplay = long.
-(* type声明 *)
+(* type *)
   type IP.
   type PORT.
   type con_mess.
@@ -10,10 +8,10 @@ set traceDisplay = long.
   type PRO.
 
 (*channel *)
-  free ia_sa,sa_ia,sa_ib:channel[private].    (* 内部主机到交换机的信道 *)
-  free sa_sb,sb_sa:channel[private].          (* 交换机之间的信道*)
-  free sa_c,c_sa,sb_c,c_sb:channel[private].  (* 交换机和控制器之间信道 *)
-  free sb_ea,ea_sb:channel.                   (* 外部主机到交换机的信道 *)
+  free ia_sa,sa_ia,sa_ib:channel[private].    
+  free sa_sb,sb_sa:channel[private].          
+  free sa_c,c_sa,sb_c,c_sb:channel[private].  
+  free sb_ea,ea_sb:channel.                   
 
   free send_flag:flag.
   
@@ -24,8 +22,8 @@ set traceDisplay = long.
 
   table FLOW_TABLE_1(IP,IP,PORT,PORT,PORT).
   table FLOW_TABLE_2(IP,IP,PORT,PORT,PORT).
-(*IP port 声明  *)
-  free InAIP:IP[private].  (*注意*)
+(*IP port*)
+  free InAIP:IP[private]. 
   free InBIP:IP[private].
   free ExAIP:IP[private].
   free InAP1,InAP2,InBP,ExAP1:PORT[private].
@@ -35,7 +33,7 @@ set traceDisplay = long.
   free S1_to_S2_FMD,S2_to_S1_FMD:mess_type.
   free TCP,UDP:PRO.
   free data,pkt_in,outside,inside,flow_mod,pkt_drop,FD:mess_type.
-(* event声明 *)
+(* event *)
  
   event IntoEx(IP).
   event ExtoIn(IP).
@@ -64,19 +62,18 @@ set traceDisplay = long.
   event RsendL3.
   event RsendL2.
   event CONTROLLER2_R_L.
-(* query   内部网络安全  主机安全*)
+(* query *)
 
-query x:IP;event(ExAtoInA(x))==> event(InAtoExA(x)).     (*内部网络安全 *)
+query x:IP;event(ExAtoInA(x))==> event(InAtoExA(x)).     (*Internal network security *)
 
-query h1,h2:IP;event(ExtoIn(h1))&&event(IntoEx(h2))==> h1=h2.      (*主机安全属性 *) 
+query h1,h2:IP;event(ExtoIn(h1))&&event(IntoEx(h2))==> h1=h2.      (*Host security property *) 
 
-query x:IP,p1,p2:PORT;event(ExAtoInAP2(x,p2))&&event(InAtoExAP1(x,p1))==>p1=p2.  (*端口安全*)
+query x:IP,p1,p2:PORT;event(ExAtoInAP2(x,p2))&&event(InAtoExAP1(x,p1))==>p1=p2.  (*Port Security*)
 
-query x:IP,p:PORT,z1,z2:PRO;event(ExAtoInAPro2(x,p,z2))&&event(InAtoExAPro1(x,p,z1))==>z1=z2.  (*协议安全*)
+query x:IP,p:PORT,z1,z2:PRO;event(ExAtoInAPro2(x,p,z2))&&event(InAtoExAPro1(x,p,z1))==>z1=z2.  (*Protocol Security*)
 
 let InA()=
   
-    (* 发送 内部主机发送给外部主机 A*)
     event InAtoExA(InAIP);
     event IntoEx(InAIP);
     event InAtoExAP1(InAIP,InAP1);
@@ -84,8 +81,6 @@ let InA()=
 
     let M1:bitstring=(InAIP,ExAIP,InAP1,ExAP1,TCP,Send,data) in
     out(ia_sa,M1);
-    
-  (*接收  外部主机的回复*)
    
     in(sa_ia,L1recv:bitstring);
     let (L1recv_srcIP:IP,L1recv_dstIP:IP,L1recv_srcPORT:PORT,L1recv_dstPORT:PORT,
@@ -111,20 +106,18 @@ let InB=
 
 let switchA() =
 
-  (*发送 内部主机发送给s1 *)
   (
     event sa_i2o;
     in(ia_sa,L1M1:bitstring);        
     
-    out(sa_c,L1M1); (*转发给控制器*)
+    out(sa_c,L1M1); 
             
-    in(c_sa,(L1M2:bitstring,FWD:mess_type,fd1:mess_type)); (*控制器回复*)
+    in(c_sa,(L1M2:bitstring,FWD:mess_type,fd1:mess_type)); 
 
     if(FWD=S1_to_S2_FMD) then
        
-     out(sa_sb,L1M2)  (*  发送给swich b *)
+     out(sa_sb,L1M2)  
   )|(
-      (*外部 发给 内部*)
     in(sb_sa,S2toS1:bitstring);
 
      event sa_o2i;
@@ -133,10 +126,10 @@ let switchA() =
 
     let (CtoS1_srcIP:IP,CtoS1_dstIP:IP,CtoS1_srcPORT:PORT,CtoS1_dstPORT:PORT,
     CtoS1_Pro:PRO,CtoS1_con:con_mess,CtoS1_type:mess_type)=CtoS1 in
-     get out_FIREWALL(=CtoS1_srcIP) in  (*为了区分是控制器回复的是 外到内*)
+     get out_FIREWALL(=CtoS1_srcIP) in
 
      if(FMD2=S1_to_L_FMD)then 
-     if(CtoS1_dstIP=InAIP) then  (*为了区分转发去 ina 还是inb*)
+     if(CtoS1_dstIP=InAIP) then  
      event S1toL1;
 
      out(sa_ia,CtoS1)
@@ -148,18 +141,18 @@ let switchA() =
 
 let switchB() =
   
-  ( (*内往外*)
+  ( 
   in(sa_sb,S1toS2m:bitstring);
    
-  out(sb_c,S1toS2m); (*转发给控制器*)
+  out(sb_c,S1toS2m); 
 
-  in(c_sb,(CtoS2M2:bitstring,FMD1:mess_type,fd3:mess_type));(*控制器回复*) 
+  in(c_sb,(CtoS2M2:bitstring,FMD1:mess_type,fd3:mess_type));
 
     if(FMD1=S2_to_R_FMD) then
     
-    out(sb_ea,CtoS2M2);  (*内部主机 发送给 外部主机*)
+    out(sb_ea,CtoS2M2);  
     0
- )|(  (*外部主机发给s2 *)
+ )|( 
 
    in(ea_sb,RtoS2:bitstring);
     
@@ -170,7 +163,7 @@ let switchB() =
     
     if(FMD3=S2_to_S1_FMD) then
     
-    out(sb_sa,CtoS2); (*发送给 内部主机*)
+    out(sb_sa,CtoS2); 
 0
 ).
 
@@ -182,7 +175,7 @@ let controller()=
     let (S1toC_srcIP:IP,S1toC_dstIP:IP,S1toC_srcPORT:PORT,S1toC_dstPORT:PORT,
   S1toC_Pro:PRO,S1toC_con:con_mess,S1toC_type:mess_type)=S1toC in
     (
-        (*S1-C  内到外*)
+        (*S1-C *)
      
         get in_FIREWALL(=S1toC_srcIP) in
         get out_FIREWALL(=S1toC_dstIP) in
@@ -191,11 +184,11 @@ let controller()=
           0
         else
         
-        insert Trusted_TABLE(S1toC_dstIP,S1toC_srcIP,S1toC_srcPORT);  (*信任表*)
+        insert Trusted_TABLE(S1toC_dstIP,S1toC_srcIP,S1toC_srcPORT); 
         event trustExAIP(S1toC_dstIP);         
         out(c_sa,(S1toC,S1_to_S2_FMD,FD)) 
     )|(
-         (*S1-C  外到内*)
+         (*S1-C  *)
         get out_FIREWALL(=S1toC_srcIP) in
         get in_FIREWALL(=S1toC_dstIP) in
         event CONTROLLER2_R_L; 
@@ -210,17 +203,17 @@ let controller()=
     let (S2toC_srcIP1:IP,S2toC_dstIP1:IP, S2toC_srcPORT:PORT,S2toC_dstPORT:PORT,
     S2toC_Pro:PRO,S2toC_con1:con_mess,S2toC_type1:mess_type)=S2toC in
       (   
-        (*S2-C 外到内*)
+        (*S2-C*)
         get out_FIREWALL(=S2toC_srcIP1) in
         get in_FIREWALL(=S2toC_dstIP1) in 
-        get Trusted_TABLE(=S2toC_srcIP1,=S2toC_dstIP1,=S2toC_dstPORT) in     (*防火墙机制 ---验证是否为信任主机*) 
+        get Trusted_TABLE(=S2toC_srcIP1,=S2toC_dstIP1,=S2toC_dstPORT) in 
              event S2toC_O2I;         
             out(c_sb,(S2toC,S2_to_S1_FMD,FD))
           else
             out(c_sb,(S2toC,pkt_drop));               
               0
     )|(  
-        (*S2-C 内到外*)
+        (*S2-C*)
         get in_FIREWALL(=S2toC_srcIP1) in   
         get out_FIREWALL(=S2toC_dstIP1) in
         event S2toC_I2O;
@@ -234,7 +227,6 @@ let ExA()=
 
 (
   let ExAmess0:bitstring=(ExAIP,InAIP,ExAP1,InAP2,UDP,Send,data) in 
-  (*内部主机 访问外部主机之前，外部主机给内部发送消息，试探能否通过*)
   event InAtoExA_before;
   out(ea_sb,ExAmess0);
   0
